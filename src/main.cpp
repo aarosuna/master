@@ -11,7 +11,7 @@
 class ContactNode 
 {
     public:
-        ContactNode(const std::string& firstName, const std::string& lastName, const std::string& phoneNumber, const std::string& address) : firstName_(firstName), lastName_(lastName), phoneNumber_(phoneNumber), address_(address) 
+        ContactNode(const std::string& firstName, const std::string& lastName, const std::string& phoneNumber, const std::string& address, const std::string& companyName, const std::string& companyPhone, const std::string& companyRif) : firstName_(firstName), lastName_(lastName), phoneNumber_(phoneNumber), address_(address), companyName_(companyName), companyPhone_(companyPhone), companyRif_(companyRif)
         {
 
         }
@@ -41,6 +41,21 @@ class ContactNode
             return address_;
         }
 
+        std::string getCompanyName() const
+        {
+            return companyName_;
+        }
+
+        std::string getCompanyPhone() const
+        {
+            return companyPhone_;
+        }
+
+        std::string getCompanyRif() const
+        {
+            return companyRif_;
+        }
+
         void setFirstName(const std::string& firstName)
         {
             firstName_ = firstName;
@@ -60,6 +75,21 @@ class ContactNode
         {
             address_ = address;
         }
+
+        void setCompanyName(const std::string& companyName)
+        {
+            companyName_ = companyName;
+        }
+
+        void setCompanyPhone(const std::string& companyPhone)
+        {
+            companyPhone_ = companyPhone;
+        }
+
+        void setCompanyRif(const std::string& companyRif)
+        {
+            companyRif_ = companyRif;
+        }
         
         bool operator<(const ContactNode& other) const
         {
@@ -71,6 +101,9 @@ class ContactNode
         std::string lastName_;
         std::string phoneNumber_;
         std::string address_;
+        std::string companyName_;
+        std::string companyPhone_;
+        std::string companyRif_;
 };
 
 class ContactNodeData : public wxTreeItemData 
@@ -187,12 +220,18 @@ class TeleAddressWindow : public wxFrame
         textCtrlLastName_ = new wxTextCtrl(this, wxID_ANY, wxEmptyString);
         textCtrlPhoneNumber_ = new wxTextCtrl(this, wxID_ANY, wxEmptyString);
         textCtrlAddress_ = new wxTextCtrl(this, wxID_ANY, wxEmptyString);
+        companyNameCtrl_ = new wxTextCtrl(this, wxID_ANY, wxEmptyString);
+        companyPhoneCtrl_ = new wxTextCtrl(this, wxID_ANY, wxEmptyString);
+        companyRifCtrl_ = new wxTextCtrl(this, wxID_ANY, wxEmptyString);
         buttonAdd_ = new wxButton(this, wxID_ANY, "Add");
         buttonAdd_->Bind(wxEVT_BUTTON, &TeleAddressWindow::OnAddButtonClicked, this);
         
         // Set the window layout
         wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
         sizer->Add(contactTree_, 1, wxEXPAND | wxALL, 5);
+        //CheckBox belongs to a company
+        companyCheckBox_ = new wxCheckBox(this, wxID_ANY, "Belongs to a company?");
+        companySizer_ = new wxStaticBoxSizer(wxVERTICAL, this, "Company information");
 
         wxStaticBoxSizer* addSizer = new wxStaticBoxSizer(wxVERTICAL, this, "Add Contact");
         addSizer->Add(new wxStaticText(this, wxID_ANY, "Name:"), 0, wxALL, 5);
@@ -203,11 +242,20 @@ class TeleAddressWindow : public wxFrame
         addSizer->Add(textCtrlPhoneNumber_, 0, wxEXPAND | wxALL, 5);
         addSizer->Add(new wxStaticText(this, wxID_ANY, "Address:"), 0, wxALL, 5);
         addSizer->Add(textCtrlAddress_, 0, wxEXPAND | wxALL, 5);
+        addSizer->Add(companyCheckBox_, 0, wxALIGN_LEFT | wxALL, 5);
+        addSizer->Add(companySizer_, 0, wxEXPAND | wxALL, 10);
         addSizer->Add(buttonAdd_, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 5);
         sizer->Add(addSizer, 0, wxEXPAND | wxALL, 10);
-
         SetSizer(sizer);
         Centre();
+        
+        companySizer_->Add(new wxStaticText(this, wxID_ANY, "Company name:"), 0, wxALL, 5);
+        companySizer_->Add(companyNameCtrl_, 0, wxALL, 5);
+        companySizer_->Add(new wxStaticText(this, wxID_ANY, "Company phone"), 0, wxALL, 5);
+        companySizer_->Add(companyPhoneCtrl_, 0, wxALL, 5);
+        companySizer_->Add(new wxStaticText(this, wxID_ANY, "Company rif"), 0, wxALL, 5);
+        companySizer_->Add(companyRifCtrl_, 0, wxALL,5);
+        companySizer_->Show(false);
 
         buttonOpenSearch_ = new wxButton(this, wxID_ANY, "Open Search");
         buttonOpenSearch_->Connect(wxEVT_BUTTON, wxCommandEventHandler(TeleAddressWindow::OnSearchButtonClicked), nullptr, this);
@@ -221,6 +269,19 @@ class TeleAddressWindow : public wxFrame
         buttonDelete_->Connect(wxEVT_BUTTON, wxCommandEventHandler(TeleAddressWindow::OnDeleteButtonClicked), nullptr, this);
         addSizer->Add(buttonDelete_, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 5);
 
+        companyCheckBox_->Connect(wxEVT_CHECKBOX, wxCommandEventHandler(TeleAddressWindow::OnCompanyCheckBox), nullptr, this);
+
+    }
+
+    void OnCompanyCheckBox(wxCommandEvent& event)
+    {
+        bool isChecked = companyCheckBox_->GetValue();
+
+        // Mostrar u ocultar el companySizer_
+        companySizer_->Show(isChecked);
+
+        // Reorganizar el diseño de la ventana
+        Layout();
     }
 
     void LoadContactsFromFile()
@@ -234,10 +295,22 @@ class TeleAddressWindow : public wxFrame
             {
                 // Separate the line in contact fields
                 std::istringstream iss(line);
-                std::string fullName, phoneNumber, address;
+                std::string fullName, phoneNumber, address, companyName, companyPhone, companyRif;
                 std::getline(iss, fullName, ',');
                 std::getline(iss, phoneNumber, ',');
                 std::getline(iss, address, ',');
+                if(iss)
+                {
+                    std::getline(iss, companyName, ',');
+                    std::getline(iss, companyPhone, ',');
+                    std::getline(iss, companyRif, ',');
+                }else
+                {
+                    companyName = "";
+                    companyPhone = "";
+                    companyRif = "";
+                }
+                
 
                 // Add the contact to the vector
                 contacts.push_back(std::make_pair(fullName, line));
@@ -245,10 +318,10 @@ class TeleAddressWindow : public wxFrame
             inputFile.close();
 
             // Sort contacts alphabetically
-            std::sort(contacts.begin(), contacts.end(),
-                [](const std::pair<std::string, std::string>& a, const std::pair<std::string, std::string>& b) {
+            std::sort(contacts.begin(), contacts.end(), [](const std::pair<std::string, std::string>& a, const std::pair<std::string, std::string>& b) 
+            {
                     return a.first < b.first;
-                });
+            });
 
             // Add contacts to the tree in alphabetical order
             wxTreeItemId rootItemId = contactTree_->GetRootItem();
@@ -259,12 +332,25 @@ class TeleAddressWindow : public wxFrame
 
                 // Create a new ContactNode object using the contact data
                 std::istringstream iss(contact.second);
-                std::string firstName, lastName, phoneNumber, address;
+                std::string firstName, lastName, phoneNumber, address, companyName, companyPhone, companyRif;
                 std::getline(iss, firstName, ',');
                 std::getline(iss, lastName, ',');
                 std::getline(iss, phoneNumber, ',');
                 std::getline(iss, address, ',');
-                ContactNode* contactNode = new ContactNode(firstName, lastName, phoneNumber, address);
+                if(iss)
+                {
+                    std::getline(iss, companyName, ',');
+                    std::getline(iss, companyPhone, ',');
+                    std::getline(iss, companyRif, ',');
+                }
+                else
+                {
+                    companyName = "";
+                    companyPhone = "";
+                    companyRif = "";
+                }
+                
+                ContactNode* contactNode = new ContactNode(firstName, lastName, phoneNumber, address, companyName, companyPhone, companyRif);
 
                 // Create ContactNodeData with ContactNode object
                 contactTree_->AppendItem(rootItemId, fullName, -1, -1, new ContactNodeData(contactNode));
@@ -279,6 +365,7 @@ class TeleAddressWindow : public wxFrame
 
     void OnContactSelected(wxTreeEvent& event)
     {
+        
         wxTreeItemId itemId = event.GetItem();
         ContactNodeData* contactData = dynamic_cast<ContactNodeData*>(contactTree_->GetItemData(itemId));
         if (contactData)
@@ -287,7 +374,19 @@ class TeleAddressWindow : public wxFrame
             wxString fullName(contact->getFullName());
             wxString phoneNumber(contact->getPhoneNumber());
             wxString address(contact->getAddress());
-            wxLogMessage("Selected contact: %s\nPhone: %s\nAddress: %s", fullName, phoneNumber, address);
+            wxString companyName(contact->getCompanyName());
+            wxString companyPhone(contact->getCompanyPhone());
+            wxString companyRif(contact->getCompanyRif());
+            if(contact->getCompanyName() == "" || contact->getCompanyPhone() == "" || contact->getCompanyRif() == "")
+            {
+                wxLogMessage("Selected contact s: %s\nPhone: %s\nAddress: %s", fullName, phoneNumber, address);
+            }
+            else
+            {
+                wxLogMessage("Selected contact c: %s\nPhone: %s\nAddress: %s\nCompany Name: %s\nCompany Phone: %s\nCompany Rif: %s", fullName, phoneNumber, address, companyName, companyPhone, companyRif);
+                
+            }
+            
         }
     }
 
@@ -306,7 +405,7 @@ class TeleAddressWindow : public wxFrame
                 if(contactData)
                 {
                     ContactNode* contact = contactData->GetContactNode();
-                    outputFile << contact->getFirstName() << "," << contact->getLastName() << "," << contact->getPhoneNumber() << "," << contact->getAddress() << "\n";
+                    outputFile << contact->getFirstName() << "," << contact->getLastName() << "," << contact->getPhoneNumber() << "," << contact->getAddress() << "," << contact->getCompanyName() << "," << contact->getCompanyPhone() << "," << contact->getCompanyRif() << "\n";
                 }
                 itemId = contactTree_->GetNextChild(rootItemId, cookie);
             }
@@ -321,6 +420,11 @@ class TeleAddressWindow : public wxFrame
         wxString lastName = textCtrlLastName_->GetValue().ToStdString();
         wxString phoneNumber = textCtrlPhoneNumber_->GetValue().ToStdString();
         wxString address = textCtrlAddress_->GetValue().ToStdString();
+        wxString companyName = companyNameCtrl_->GetValue();
+        wxString companyPhone = companyPhoneCtrl_->GetValue();
+        wxString companyRif = companyRifCtrl_->GetValue();
+        bool belongsToCompany = companyCheckBox_->GetValue();
+        ContactNode* contact;
 
         if(!firstName.empty() && !lastName.empty() && !phoneNumber.empty() && !address.empty())
         {
@@ -333,23 +437,46 @@ class TeleAddressWindow : public wxFrame
                     ContactNodeData* contactData = dynamic_cast<ContactNodeData*>(contactTree_->GetItemData(itemId));
                     if(contactData)
                     {
-                        ContactNode* contact = contactData->GetContactNode();
+                        contact = contactData->GetContactNode();
 
                         //  Update the existing contact's data
                         contact->setFirstName(firstName.ToStdString());
                         contact->setLastName(lastName.ToStdString());
                         contact->setPhoneNumber(phoneNumber.ToStdString());
                         contact->setAddress(address.ToStdString());
+                        if(belongsToCompany)
+                        {
+                            if(!companyName.empty() && !companyPhone.empty() && !companyRif.empty())
+                            {
+                                contact->setCompanyName(companyName.ToStdString());
+                                contact->setCompanyPhone(companyPhone.ToStdString());
+                                contact->setCompanyRif(companyRif.ToStdString());
+                            }
+                            else
+                            {
+                                wxMessageBox("Please fill in all the fields.", "Error", wxOK | wxICON_ERROR);
+                            }
+                            
+                        }
 
                         // Update the contact data in the tree
                         contactTree_->SetItemText(itemId, contact->getFullName());
                     }
                 }
+                buttonAdd_->SetLabel("Add");
             }
             else
             {
                 // Create the new contact node
-                ContactNode* contact = new ContactNode(firstName.ToStdString(), lastName.ToStdString(), phoneNumber.ToStdString(), address.ToStdString());
+                if(!belongsToCompany)
+                {
+                    contact = new ContactNode(firstName.ToStdString(), lastName.ToStdString(), phoneNumber.ToStdString(), address.ToStdString(), "", "", "");
+                }
+                else
+                {
+                    contact = new ContactNode(firstName.ToStdString(), lastName.ToStdString(), phoneNumber.ToStdString(), address.ToStdString(), companyName.ToStdString(), companyPhone.ToStdString(), companyRif.ToStdString());
+                }
+                
 
                 // Insert the contact as a child of the tree root
                 wxTreeItemId rootItemId = contactTree_->GetRootItem();
@@ -365,6 +492,10 @@ class TeleAddressWindow : public wxFrame
             textCtrlLastName_->Clear();
             textCtrlPhoneNumber_->Clear();
             textCtrlAddress_->Clear();
+            companyNameCtrl_->Clear();
+            companyPhoneCtrl_->Clear();
+            companyRifCtrl_->Clear();
+
             editMode_ = false;
 
             SaveContactsToFile();
@@ -380,21 +511,29 @@ class TeleAddressWindow : public wxFrame
     {
         // Get the contact selected in the tree
         wxTreeItemId itemId = contactTree_->GetSelection();
+        bool belongsToCompany = companyCheckBox_->GetValue();
+        ContactNode* contact;
+
         if (itemId.IsOk())
         {
             ContactNodeData* contactData = dynamic_cast<ContactNodeData*>(contactTree_->GetItemData(itemId));
             if (contactData)
             {
-                ContactNode* contact = contactData->GetContactNode();
+                contact = contactData->GetContactNode();
 
                 // Load contact data in input fields
                 textCtrlFirstName_->SetValue(contact->getFirstName());
                 textCtrlLastName_->SetValue(contact->getLastName());
                 textCtrlPhoneNumber_->SetValue(contact->getPhoneNumber());
                 textCtrlAddress_->SetValue(contact->getAddress());
+                companyNameCtrl_->SetValue(contact->getCompanyName());
+                companyPhoneCtrl_->SetValue(contact->getCompanyPhone());
+                companyRifCtrl_->SetValue(contact->getCompanyRif());
+                
 
-                // Set the Edit Mode
+                // Set the Edit Mode and buttonAdd_ value update
                 editMode_ = true;
+                buttonAdd_->SetLabel("Update");
             }
         }        
     }
@@ -427,7 +566,7 @@ class TeleAddressWindow : public wxFrame
                 if(contactData)
                 {
                     ContactNode* contact = contactData->GetContactNode();
-                    outputFile << contact->getFirstName() << "," << contact->getLastName() << "," << contact->getPhoneNumber() << "," << contact->getAddress() << "\n";
+                    outputFile << contact->getFirstName() << "," << contact->getLastName() << "," << contact->getPhoneNumber() << "," << contact->getAddress() << "," << contact->getCompanyName() << "," << contact->getCompanyPhone() << "," << contact->getCompanyRif() << "\n";
                 }
                 itemId = contactTree_->GetNextChild(rootItemId, cookie);
             }
@@ -468,6 +607,11 @@ class TeleAddressWindow : public wxFrame
         wxTextCtrl* textCtrlLastName_;
         wxTextCtrl* textCtrlPhoneNumber_;
         wxTextCtrl* textCtrlAddress_;
+        wxCheckBox* companyCheckBox_;
+        wxStaticBoxSizer* companySizer_;
+        wxTextCtrl* companyNameCtrl_;
+        wxTextCtrl* companyPhoneCtrl_;
+        wxTextCtrl* companyRifCtrl_;
         wxButton* buttonAdd_;
         wxButton* buttonEdit_;
         wxButton* buttonDelete_;
@@ -509,10 +653,10 @@ class TeleAddressApp : public wxApp
             while(std::getline(inputFile, line))
             {
                 std::istringstream iss(line);
-                std::string firstName, lastName, phoneNumber, address;
+                std::string firstName, lastName, phoneNumber, address, companyName, companyPhone, companyRif;
                 if(std::getline(iss, firstName, ',') && std::getline(iss, lastName, ',') && std::getline(iss, phoneNumber, ',') && std::getline(iss, address, ','))
                 {
-                    ContactNode* contact = new ContactNode(firstName, lastName, phoneNumber, address);
+                    ContactNode* contact = new ContactNode(firstName, lastName, phoneNumber, address, companyName, companyPhone, companyRif);
                     contactNodes.push_back(new ContactNodeData(contact));
                 }
             }
