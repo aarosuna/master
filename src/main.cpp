@@ -304,10 +304,153 @@ class TeleAddressWindow : public wxFrame
         buttonDelete_->Connect(wxEVT_BUTTON, wxCommandEventHandler(TeleAddressWindow::OnDeleteButtonClicked), nullptr, this);
         addSizer->Add(buttonDelete_, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 5);
 
+        buttonExport_ = new wxButton(this, wxID_ANY, "Export");
+        buttonExport_->Connect(wxEVT_BUTTON, wxCommandEventHandler(TeleAddressWindow::OnExportButtonClicked), nullptr, this);
+        addSizer->Add(buttonExport_, 0, wxALIGN_RIGHT | wxALL, 5);
+
+        buttonImport_ = new wxButton(this, wxID_ANY, "Import");
+        buttonImport_->Connect(wxEVT_BUTTON, wxCommandEventHandler(TeleAddressWindow::OnImportButtonClicked), nullptr, this);
+        addSizer->Add(buttonImport_, 0, wxALIGN_RIGHT | wxALL, 5);
+
         companyCheckBox_->Connect(wxEVT_CHECKBOX, wxCommandEventHandler(TeleAddressWindow::OnCompanyCheckBox), nullptr, this);
 
         eventCheckBox_->Connect(wxEVT_CHECKBOX, wxCommandEventHandler(TeleAddressWindow::OnEventCheckBox), nullptr, this);
         Maximize();
+
+    }
+
+    void OnExportButtonClicked(wxCommandEvent& event)
+    {
+        //save window
+        wxFileDialog saveFileDialog(this, "Export contacts", "", "", "CSV Files (*.csv)|*.csv", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+        if (saveFileDialog.ShowModal() == wxID_CANCEL)
+        {
+            return;
+        }
+
+        std::string exportFilePathStdString = saveFileDialog.GetPath().ToStdString();
+
+        // Automatically add the .csv extension if it is not present
+        if (exportFilePathStdString.substr(exportFilePathStdString.length() - 4) != ".csv")
+        {
+            exportFilePathStdString += ".csv";
+        }
+
+        // Open CSV file for writing
+        std::ofstream outputFile(exportFilePathStdString);
+        if (!outputFile.is_open())
+        {
+            // Error opening file
+            return;
+        }
+
+        std::ifstream inputFile("contacts.txt");
+        if (!inputFile.is_open())
+        {
+            // Error opening contacts file
+            outputFile.close();
+            return;
+        }
+
+        // Get the contact data to be exported
+        std::vector<std::vector<std::string>> contactData;
+
+        std::string line;
+
+        while (std::getline(inputFile, line))
+        {
+            std::istringstream iss(line);
+            std::vector<std::string> rowData;
+
+            std::string field;
+            while (std::getline(iss, field))
+            {
+                rowData.push_back(field);
+            }
+
+            contactData.push_back(rowData);
+        }
+
+        inputFile.close();
+
+        // Write contact data to a CSV file
+        for (const auto& rowData : contactData)
+        {
+            for (const auto& field : rowData)
+            {
+                outputFile << field << ",";
+            }
+            outputFile << "\n";
+        }
+
+        outputFile.close();
+    }
+
+    void OnImportButtonClicked(wxCommandEvent& event)
+    {
+        wxFileDialog openFileDialog(this, "Import contacts","","","CSV Files (*.csv)|*.csv", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+        if (openFileDialog.ShowModal() == wxID_CANCEL)
+        {
+            return;
+        }
+
+        std::string importFilePathStdString = openFileDialog.GetPath().ToStdString();
+        
+        // Abrir el archivo CSV para lectura
+        std::ifstream inputFile(importFilePathStdString);
+        if (!inputFile.is_open())
+        {
+            // Error al abrir el archivo
+            return;
+        }
+
+        std::vector<std::vector<std::string>> contactData;
+
+        std::string line;
+        while (std::getline(inputFile, line))
+        {
+            std::istringstream iss(line);
+            std::vector<std::string> rowData;
+
+            std::string field;
+            while (std::getline(iss, field, ','))
+            {
+                rowData.push_back(field);
+            }
+
+            contactData.push_back(rowData);
+        }
+
+        inputFile.close();
+
+       // Guardar los contactos importados en el archivo "Contacts.txt"
+        std::ofstream outputFile("contacts.txt");
+        if (!outputFile.is_open())
+        {
+            // Error al abrir el archivo
+            return;
+        }
+
+        for (const auto& rowData : contactData)
+        {
+            bool firstField = true;
+
+            for (const auto& field : rowData)
+            {
+                if(!firstField)
+                {
+                    outputFile << ",";
+                }
+
+                outputFile << field;
+                firstField = false;
+
+            }
+
+            outputFile << "\n";
+        }
+
+        outputFile.close();
 
     }
 
@@ -710,6 +853,8 @@ class TeleAddressWindow : public wxFrame
         wxButton* buttonEdit_;
         wxButton* buttonDelete_;
         wxButton* buttonOpenSearch_;
+        wxButton* buttonExport_;
+        wxButton* buttonImport_;
         SearchWindow* searchWindow_;
         bool editMode_;
         std::string fileName = "contacts.txt";
